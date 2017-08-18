@@ -1,7 +1,8 @@
 (ns book-sorter.routing-test
   (:require [book-sorter.routing :as r]
             [cljs.test :refer-macros [deftest is testing run-tests]]
-            [book-sorter.urls :as u]))
+            [book-sorter.urls :as u]
+            [bidi.bidi :as b]))
 
 (deftest test-urls
   (let [test-urls
@@ -43,5 +44,5 @@
       (is (= (r/split-url (r/combine-url split)) split)))))
 
 (deftest test-routes
-  (is (= (disj (set (keys (methods r/handle-route))) :default)
+  (is (= (set (keys (methods r/handle-route)))
          (set (map :handler (b/route-seq u/client-routes))))))

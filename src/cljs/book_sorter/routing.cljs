@@ -111,7 +111,7 @@
                  query :query}])}
   (fn [_ {handler :handler}] handler))
 
-(defmethod handle-route :default
+(defmethod handle-route :client/not-found
   [_ _]
   {:db {:location {:handler :client/not-found}}})
 
