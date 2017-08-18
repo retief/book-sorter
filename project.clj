@@ -20,6 +20,7 @@
   :plugins [[lein-cljsbuild "1.1.7"]
             [lein-ring "0.12.0"]
             [lein-figwheel  "0.5.4-7"]]
+  :hooks [leiningen.cljsbuild]
 
   :cljsbuild {:builds {:dev {:figwheel {:on-jsload "book-sorter.core/run"}
                              :source-paths ["src/cljs" "src/cljc"]

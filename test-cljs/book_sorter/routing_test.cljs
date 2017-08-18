@@ -1,4 +1,4 @@
-(ns book-sorter.test-routing
+(ns book-sorter.routing-test
   (:require [book-sorter.routing :as r]
             [cljs.test :refer-macros [deftest is testing run-tests]]))
 
