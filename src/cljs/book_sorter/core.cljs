@@ -42,8 +42,7 @@ from the evil Alliance"
 (rf/reg-event-fx
   :initialize
   (fn [_ _]
-    {:dispatch [:routing/page-changed {:handler :client/home}]
-     :db {:data book-data}}))
+    {:db {:data book-data}}))
 
 (defmethod r/handle-route :client/home
   [{{data :data
@@ -88,12 +87,15 @@ from the evil Alliance"
   [_]
   [:div "Loading"])
 
-(defmethod show-page :404
-  [_]
+(defn show-404 [url]
   [:div
    "Page "
-   (r/url-str @(rf/subscribe [:page-data]))
+   (r/url-str url)
    " not found"])
+
+(defmethod show-page :404
+  [_]
+  (show-404 @(rf/subscribe [:page-data])))
 
 (defn show-book [{name :name
                   author :author
@@ -103,24 +105,29 @@ from the evil Alliance"
                                   :params {:book-id id}})}
     [:span.name name] " by " [:span.author author]]])
 
+(defn show-home [book-list]
+  [:div [:h1 "all books"]
+   (for [book book-list]
+     ^{:key (:id book)} [show-book book])])
+
 (defmethod show-page :client/home
   [_]
-  [:div [:h1 "all books"]
-   (for [book @(rf/subscribe [:page-data])]
-     ^{:key (:id book)} [show-book book])])
+  (show-home @(rf/subscribe [:page-data])))
+
+(defn show-book-details [{name :name
+                          author :author
+                          description :description
+                          genre :genre}]
+  [:div
+   [:div name]
+   [:div author]
+   [:div description]
+   [:div genre]
+   [:a {:href (r/url-str {:handler :client/home})} "Up"]])
 
 (defmethod show-page :client/show-book
   [_]
-  (let [{name :name
-         author :author
-         description :description
-         genre :genre} (r/log "page-data" @(rf/subscribe [:page-data]))]
-    [:div
-     [:div name]
-     [:div author]
-     [:div description]
-     [:div genre]
-     [:a {:href (r/url-str {:handler :client/home})} "Up"]]))
+  (show-book-details @(rf/subscribe [:page-data])))
 
 (defn ui []
   (show-page @(rf/subscribe [:location])))

@@ -2,6 +2,7 @@
 /classes
 /checkouts
 /resources/public/js/
+/resources/private/js/
 pom.xml
 pom.xml.asc
 *~

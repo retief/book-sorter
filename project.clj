@@ -21,24 +21,31 @@
             [lein-ring "0.12.0"]
             [lein-figwheel  "0.5.4-7"]]
 
-  :profiles {:dev {:cljsbuild
-                   {:builds {:client {:figwheel     {:on-jsload "book-sorter.core/run"}
-                                      :compiler     {:main "book-sorter.core"
-                                                     :asset-path "js"
-                                                     :optimizations :none
-                                                     :source-map true
-                                                     :source-map-timestamp true}}}}}
-
-             :prod {:cljsbuild
-                    {:builds {:client {:compiler    {:optimizations :advanced
-                                                     :elide-asserts true
-                                                     :pretty-print false}}}}}}
+  :cljsbuild {:builds {:dev {:figwheel {:on-jsload "book-sorter.core/run"}
+                             :source-paths ["src/cljs" "src/cljc"]
+                             :compiler {:main "book-sorter.core"
+                                        :asset-path "js"
+                                        :optimizations :none
+                                        :source-map true
+                                        :source-map-timestamp true
+                                        :output-dir "resources/public/js"
+                                        :output-to "resources/public/js/main.js"}}
+                       :prod {:source-paths ["src/cljs" "src/cljc"]
+                              :compiler {:optimizations :advanced
+                                         :elide-asserts true
+                                         :pretty-print false
+                                         :output-to "resources/public/js/main.js"}}
+                       :test {:source-paths ["src/cljs" "src/cljc" "test-cljs"]
+                              :compiler {:optimizations :whitespace
+                                         :output-dir "resources/private/js"
+                                         :output-to "resources/private/js/unit-test.js"}}}
+              
+              :test-commands
+              {"unit" ["phantomjs"
+                       "phantom/unit-test.js"
+                       "resources/private/unit-test.html"]}}
   
-  :cljsbuild {:builds {:client {:source-paths ["src/cljs" "src/cljc"]
-                                :compiler {:output-dir "resources/public/js"
-                                           :output-to "resources/public/js/main.js"}}}}
-  
-  :clean-targets ^{:protect false} ["resources/public/js"]
+  :clean-targets ^{:protect false} ["resources/public/js" "resources/private/js"]
   
   :ring {:handler book-sorter.routes/app}
   :figwheel {:repl false

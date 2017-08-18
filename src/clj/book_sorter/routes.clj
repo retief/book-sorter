@@ -2,6 +2,7 @@
   (:require [ring.middleware.reload :as reload]
             [ring.middleware.resource :as resource]
             [ring.middleware.params :as params]
+            [ring.util.response :as response]
             [bidi.bidi :as b]
             [cheshire.core :as c]
             [book-sorter.urls :as u]))
@@ -89,9 +90,7 @@ that handles routes"
         {:status 200
          :headers {"Content-Type" "text/json"}
          :body (c/generate-string result)}
-        {:status 404
-         :headers {"Content-Type" "text/json"}
-         :body "\"Not Found\""}))))
+        (response/resource-response "public/index.html")))))
 
 (def app
   (-> (make-handler (partial b/match-route u/api-routes) handle-route)

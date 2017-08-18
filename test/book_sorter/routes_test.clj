@@ -1,6 +1,6 @@
 (ns book-sorter.routes-test
-  (:require [clojure.test :refer :all]
-            [book-sorter.routes :refer :all]
+  (:require [clojure.test :refer [deftest testing is use-fixtures are]]
+            [book-sorter.routes :as r]
             [book-sorter.urls :as u]
             [bidi.bidi :as b]
             [ring.mock.request :as mock]
@@ -149,12 +149,12 @@ from the evil Alliance"
         "route with non-numeric id returns nil")))
 
 (deftest test-make-handler
-  (is (= (:status ((make-handler (constantly nil) (fn [x _] x))
-                   (mock/request :get "/foo/bar")))
-         404))
-  (is (= (:status ((make-handler identity (constantly nil))
-                   (mock/request :get "/foo/bar")))
-         404))
+  (is (instance? java.io.File
+                 (:body ((make-handler (constantly nil) (fn [x _] x))
+                         (mock/request :get "/foo/bar")))))
+  (is (instance? java.io.File
+                 (:body ((make-handler identity (constantly nil))
+                         (mock/request :get "/foo/bar")))))
   (is (.contains (:body ((make-handler identity (fn [x _] x))
                          (mock/request :get "/foo/bar")))
                  "/foo/bar")))
@@ -196,4 +196,13 @@ from the evil Alliance"
   (is (= (-> (mock/request :get "/index.html")
              app
              :status)
-         200)))
+         200))
+  (is (= (-> (mock/request :get "/index.html")
+             app
+             :body)
+         (-> (mock/request :get "/")
+             app
+             :body)
+         (-> (mock/request :get "/book/1")
+             app
+             :body))))

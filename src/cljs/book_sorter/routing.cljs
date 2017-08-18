@@ -36,11 +36,13 @@
 
 (defn split-url [url]
   (let [[base params] (str/split url #"\?" 2)
-        param-map (and params
-                       (into {}
-                             (for [pair (str/split params #"&")]
-                               (vec (map b/url-decode (str/split pair #"=" 2))))))]
-    {:url base :query param-map}))
+        base-url {:url base}]
+    (if params
+      (assoc base-url :query
+             (into {}
+                   (for [pair (str/split params #"&")]
+                     (vec (map b/url-decode (str/split pair #"=" 2))))))
+      base-url)))
 
 (defn combine-url [{url :url, params :query}]
   (if params
@@ -52,7 +54,6 @@
     url))
 
 (defn set-page! [url]
-  (println "setting page to: " url)
   (rf/dispatch [:routing/page-changed url]))
 
 (defn parse-url-str [url-str]
@@ -115,7 +116,6 @@
   {:db {:location {:handler :404}}})
 
 (defn handle-page-changed [cofx [_ url]]
-  (println "page changing")
   (handle-route cofx url))
 
 (rf/reg-event-fx
