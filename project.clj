@@ -24,7 +24,7 @@
   :cljsbuild {:builds {:dev {:figwheel {:on-jsload "book-sorter.core/run"}
                              :source-paths ["src/cljs" "src/cljc"]
                              :compiler {:main "book-sorter.core"
-                                        :asset-path "js"
+                                        :asset-path "/js"
                                         :optimizations :none
                                         :source-map true
                                         :source-map-timestamp true

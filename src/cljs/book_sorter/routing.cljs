@@ -113,7 +113,7 @@
 
 (defmethod handle-route :default
   [_ _]
-  {:db {:location {:handler :404}}})
+  {:db {:location {:handler :client/not-found}}})
 
 (defn handle-page-changed [cofx [_ url]]
   (handle-route cofx url))

@@ -63,7 +63,7 @@ from the evil Alliance"
                   :location url)
            (assoc db
                   :page-data url
-                  :location {:handler :404}))}))
+                  :location {:handler :client/not-found}))}))
 
 (rf/reg-sub
   :location
@@ -80,22 +80,19 @@ from the evil Alliance"
   returns re-frames pseudo-hiccup"
   {:arglists '([{handler :handler
                  params :params
-                 query :query}])}
-  (fn [{handler :handler}] handler))
+                 query :query} page-data])}
+  (fn [{handler :handler} _] handler))
 
 (defmethod show-page :default
   [_]
   [:div "Loading"])
 
-(defn show-404 [url]
+(defmethod show-page :client/not-found
+  [_ url]
   [:div
    "Page "
    (r/url-str url)
    " not found"])
-
-(defmethod show-page :404
-  [_]
-  (show-404 @(rf/subscribe [:page-data])))
 
 (defn show-book [{name :name
                   author :author
@@ -105,19 +102,17 @@ from the evil Alliance"
                                   :params {:book-id id}})}
     [:span.name name] " by " [:span.author author]]])
 
-(defn show-home [book-list]
+(defmethod show-page :client/home
+  [_ book-list]
   [:div [:h1 "all books"]
    (for [book book-list]
      ^{:key (:id book)} [show-book book])])
 
-(defmethod show-page :client/home
-  [_]
-  (show-home @(rf/subscribe [:page-data])))
-
-(defn show-book-details [{name :name
-                          author :author
-                          description :description
-                          genre :genre}]
+(defmethod show-page :client/show-book
+  [_ {name :name
+      author :author
+      description :description
+      genre :genre}]
   [:div
    [:div name]
    [:div author]
@@ -125,12 +120,9 @@ from the evil Alliance"
    [:div genre]
    [:a {:href (r/url-str {:handler :client/home})} "Up"]])
 
-(defmethod show-page :client/show-book
-  [_]
-  (show-book-details @(rf/subscribe [:page-data])))
-
 (defn ui []
-  (show-page @(rf/subscribe [:location])))
+  (show-page @(rf/subscribe [:location])
+             @(rf/subscribe [:page-data])))
 
 (defn ^:export run
   []
