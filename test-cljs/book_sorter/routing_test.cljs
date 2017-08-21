@@ -49,3 +49,37 @@
         route-methods (set (map :handler (b/route-seq u/client-routes)))]
     (is (empty? (set/difference route-methods handler-methods)))
     (is (empty? (set/difference handler-methods route-methods)))))
+
+(deftest test-parse-url-str
+  (is (= (r/parse-url-str "/foo/bar/bash")
+         {:handler :client/not-found}))
+  (is (= (r/parse-url-str "/foo/bar/bash?a=b&c=d")
+         {:handler :client/not-found
+          :query {"a" "b" "c" "d"}})))
+
+(deftest test-url-str
+  (is (= (r/url-str {:handler :client/home})
+         "/"))
+  (is (= (r/url-str {:handler :client/show-book
+                     :params {:book-id 1}})
+         "/book/1"))
+  (is (= (r/url-str {:handler :client/show-book
+                     :params {:book-id 1}
+                     :query {"foo" "bar"}})
+         "/book/1?foo=bar")))
+
+(deftest test-handle-navigate
+  (is (= (r/handle-navigate nil [:navigate {:handler :test}])
+         {:routing/update-history {:handler :test :replace nil}}))
+  (is (= (r/handle-navigate nil [:navigate {:handler :test} true])
+         {:routing/update-history {:handler :test :replace true}})))
+
+(deftest test-handle-not-found-route
+  (is (= (r/handle-route nil {:handler :client/not-found})
+         {:db {:location {:handler :client/not-found}}}))
+  (is (= (b/match-route u/client-routes "/foo/bar/bash")
+         {:handler :client/not-found})))
+
+(deftest test-handle-page-changed
+  (is (= (r/handle-page-changed nil [nil {:handler :client/not-found}])
+         {:db {:location {:handler :client/not-found}}})))

@@ -62,8 +62,10 @@
     (if match
       (let [{handler :handler
              params :route-params} match
-            url {:handler handler
-                 :params params}]
+            url {:handler handler}
+            url (if params
+                  (assoc url :params params)
+                  url)]
         (if query
           (assoc url :query query)
           url))
@@ -88,9 +90,11 @@
 (defn handle-update-history
   {:arglists '([{handler :handler
                  params :params
-                 query :query}])}
-  [url]
-  (p/set-token! history (url-str url)))
+                 query :query
+                 replace :replace}])}
+  [{replace :replace :as url}]
+  ((if replace p/replace-token! p/set-token!)
+   history (url-str url)))
 
 (rf/reg-fx
   :routing/update-history
