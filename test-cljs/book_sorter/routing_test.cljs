@@ -2,7 +2,8 @@
   (:require [book-sorter.routing :as r]
             [cljs.test :refer-macros [deftest is testing run-tests]]
             [book-sorter.urls :as u]
-            [bidi.bidi :as b]))
+            [bidi.bidi :as b]
+            [clojure.set :as set]))
 
 (deftest test-urls
   (let [test-urls
@@ -44,5 +45,7 @@
       (is (= (r/split-url (r/combine-url split)) split)))))
 
 (deftest test-routes
-  (is (= (set (keys (methods r/handle-route)))
-         (set (map :handler (b/route-seq u/client-routes))))))
+  (let [handler-methods (set (keys (methods r/handle-route)))
+        route-methods (set (map :handler (b/route-seq u/client-routes)))]
+    (is (empty? (set/difference route-methods handler-methods)))
+    (is (empty? (set/difference handler-methods route-methods)))))

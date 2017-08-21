@@ -4,7 +4,8 @@
             [book-sorter.urls :as u]
             [bidi.bidi :as b]
             [ring.mock.request :as mock]
-            [cheshire.core :as c]))
+            [cheshire.core :as c]
+            [clojure.set :as set]))
 
 (def test-data
   [{:id 0
@@ -45,9 +46,10 @@ from the evil Alliance"
 
 (deftest test-routing
   (testing "general tests"
-    (is (= (disj (set (keys (methods handle-route))) :default)
-           (set (map :handler (b/route-seq u/api-routes))))
-        "all routes are handled, all handlers have routes (not counting default)"))
+    (let [handler-methods (set (keys (methods handle-route)))
+          route-methods (set (map :handler (b/route-seq u/api-routes)))]
+      (is (empty? (set/difference handler-methods route-methods)))
+      (is (empty? (set/difference route-methods handler-methods)))))
 
   (testing ":books/all"
     (is (= (handle-route {:handler :book/all} nil)
@@ -144,9 +146,14 @@ from the evil Alliance"
     (is (= (b/match-route u/api-routes "/api/book/5")
            {:handler :book/get :route-params {:book-id "5"}})
         "route with numeric id works")
-    (is (= (b/match-route u/api-routes "/api/book/asdf")
-           nil)
-        "route with non-numeric id returns nil")))
+    (is (not (= (:handler (b/match-route u/api-routes "/api/book/asdf"))
+                :book/get))
+        "route with non-numeric id doesn't match"))
+
+  (testing ":server/client-route"
+    (is (not (handle-route {:handler :server/client-route} nil)))
+    (is (= (b/match-route u/api-routes "/foo/bar/bash")
+           {:handler :server/client-route}))))
 
 (deftest test-make-handler
   (is (instance? java.io.File

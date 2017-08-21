@@ -75,7 +75,7 @@ from the evil Alliance"
     (some #(and (= (:id %) book-id) %)
           @book-data)))
 
-(defmethod handle-route :default
+(defmethod handle-route :server/client-route
   [_ _]
   nil)
 
