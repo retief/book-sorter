@@ -2,7 +2,8 @@
   (:require [reagent.core :as reagent]
             [re-frame.core :as rf]
             [clojure.string :as str]
-            [book-sorter.routing :as r]))
+            [book-sorter.routing :as r]
+            [book-sorter.sente]))
 
 
 (def book-data
@@ -63,7 +64,15 @@ from the evil Alliance"
                   :location url)
            (assoc db
                   :page-data url
-                  :location {:handler :client/not-found}))}))
+                  :location {:handler :client/not-found}))
+     :sente/send {:event [:foo/bar "hello"]
+                  :on-success [:client/sente-responded]
+                  :on-failure [:client/sente-responded]}}))
+
+(rf/reg-event-fx
+  :client/sente-responded
+  (fn [_ event]
+    (prn "sente responded" event)))
 
 (rf/reg-sub
   :location

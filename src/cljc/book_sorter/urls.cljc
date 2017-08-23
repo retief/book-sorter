@@ -6,8 +6,9 @@
         true :client/not-found}])
 
 (def api-routes
-  ["" {"/api/" {"book/search" :book/search
-                "book/all" :book/all
-                ["book/" [#"\d+" :book-id]] :book/get}
-       true :server/client-route}])
+  ["" [["/api/" {"book/search" :book/search
+                 "book/all" :book/all
+                 ["book/" [#"\d+" :book-id]] :book/get}]
+       ["/chsk" :sente/setup]
+       [true :server/client-route]]])
 

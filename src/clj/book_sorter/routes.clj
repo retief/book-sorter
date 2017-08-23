@@ -2,10 +2,15 @@
   (:require [ring.middleware.reload :as reload]
             [ring.middleware.resource :as resource]
             [ring.middleware.params :as params]
+            [ring.middleware.keyword-params :as keyword-params]
             [ring.util.response :as response]
             [bidi.bidi :as b]
             [cheshire.core :as c]
-            [book-sorter.urls :as u]))
+            [book-sorter.urls :as u]
+            [taoensso.sente :as sente]
+            [taoensso.sente.server-adapters.aleph :as sente-adapter]
+            [aleph.http :as http]
+            [aleph.netty :as netty]))
 
 (def book-data
   (atom [{:id 0
@@ -63,8 +68,7 @@ from the evil Alliance"
   (letfn [(matches [book]
             (every? identity
                     (for [[field search] searches]
-                      (let [field (keyword field)
-                            book-val (book field)]
+                      (let [book-val (book field)]
                         (or (not book-val)
                             (.contains book-val search))))))]
     (clean-books (filter matches @book-data))))
@@ -74,6 +78,33 @@ from the evil Alliance"
   (let [book-id (Integer/parseInt book-id)]
     (some #(and (= (:id %) book-id) %)
           @book-data)))
+
+(let [{:keys [ch-recv send-fn connected-uids
+              ajax-post-fn ajax-get-or-ws-handshake-fn]}
+      (sente/make-channel-socket! (sente-adapter/get-sch-adapter) {})]
+
+  (def ring-ajax-post                ajax-post-fn)
+  (def ring-ajax-get-or-ws-handshake ajax-get-or-ws-handshake-fn)
+  (def ch-chsk                       ch-recv) ; ChannelSocket's receive channel
+  (def chsk-send!                    send-fn) ; ChannelSocket's send API fn
+  (def connected-uids                connected-uids)) ; Watchable, read-only atom
+
+(defmethod handle-route :sente/setup
+  [_ {method :request-method :as req}]
+  ((case method
+     :get ring-ajax-get-or-ws-handshake
+     :post ring-ajax-post
+     (constantly nil)) req))
+
+(defn event-msg-handler [{reply-fn :?reply-fn :as ev-msg}]
+  (prn "ev-msg" (select-keys ev-msg
+                             [:event :id :?data
+                              :?reply-fn :uid :client-id]))
+  (prn "keys" (keys ev-msg))
+  (when reply-fn
+    (reply-fn [:hello-again "foo"])))
+
+(sente/start-server-chsk-router! ch-chsk event-msg-handler)
 
 (defmethod handle-route :server/client-route
   [_ _]
@@ -89,13 +120,22 @@ that handles routes"
       (if result
         {:status 200
          :headers {"Content-Type" "text/json"}
-         :body (c/generate-string result)}
+         :body result #_(c/generate-string result)}
         (response/resource-response "public/index.html")))))
 
 (def app
   (-> (make-handler (partial b/match-route u/api-routes) handle-route)
+      keyword-params/wrap-keyword-params
       params/wrap-params
       (resource/wrap-resource "public")))
 
 (def dev-app
   (reload/wrap-reload app {:dirs ["src/clj" "src/cljc"]}))
+
+(defn -main [port]
+  (let [port (if port
+               (Integer/parseInt port)
+               3000)]
+    (println "starting server on:" port)
+    (netty/wait-for-close
+      (http/start-server dev-app {:port port}))))

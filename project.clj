@@ -12,6 +12,8 @@
                  [reagent  "0.7.0"]
                  [re-frame "0.9.4"]
                  [day8.re-frame/http-fx "0.1.4"]
+                 [aleph "0.4.3"]
+                 [com.taoensso/sente "1.11.0"]
                  [ring/ring-devel "1.6.2"]
                  [ring/ring-mock "0.3.1"]
                  [cheshire "5.8.0"]
@@ -19,9 +21,7 @@
                  [kibu/pushy "0.3.7"]
                  [com.cemerick/piggieback "0.2.1"]]
   :plugins [[lein-cljsbuild "1.1.7"]
-            [lein-ring "0.12.0"]
             [lein-figwheel  "0.5.4-7"]]
-  :hooks [leiningen.cljsbuild]
 
   :cljsbuild {:builds {:dev {:figwheel {:on-jsload "book-sorter.core/run"}
                              :source-paths ["src/cljs" "src/cljc"]
@@ -49,6 +49,5 @@
   
   :clean-targets ^{:protect false} ["resources/public/js" "resources/private/js"]
   
-  :ring {:handler book-sorter.routes/app}
-  :figwheel {:repl false
-             :ring-handler book-sorter.routes/dev-app})
+  :main book-sorter.routes
+  :figwheel {:repl false})
