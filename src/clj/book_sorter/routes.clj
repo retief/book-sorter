@@ -46,6 +46,9 @@ from the evil Alliance"
           :description "10 year old Gerald Durrell moves to Corfu with his family"
           :genre :comedy}]))
 
+(defn json-response [val]
+  (c/generate-string val))
+
 (defmulti handle-route
   "The main route handler for the server.
     route is the result from bidi matching, and req
@@ -61,7 +64,8 @@ from the evil Alliance"
 
 (defmethod handle-route :book/all
   [_ _]
-  (clean-books @book-data))
+  (json-response
+    (clean-books @book-data)))
 
 (defmethod handle-route :book/search
   [_ {searches :params}]
@@ -71,13 +75,17 @@ from the evil Alliance"
                       (let [book-val (book field)]
                         (or (not book-val)
                             (.contains book-val search))))))]
-    (clean-books (filter matches @book-data))))
+    (json-response
+      (clean-books (filter matches @book-data)))))
 
 (defmethod handle-route :book/get
   [{{book-id :book-id} :route-params} _]
-  (let [book-id (Integer/parseInt book-id)]
-    (some #(and (= (:id %) book-id) %)
-          @book-data)))
+  (let [book-id (Integer/parseInt book-id)
+        result (some #(and (= (:id %) book-id) %)
+                     @book-data)]
+    (and result
+         (json-response
+           result))))
 
 (let [{:keys [ch-recv send-fn connected-uids
               ajax-post-fn ajax-get-or-ws-handshake-fn]}

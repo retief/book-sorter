@@ -53,40 +53,41 @@ from the evil Alliance"
 
   (testing ":books/all"
     (is (= (handle-route {:handler :book/all} nil)
-           [{:id 0
-             :name "Young Miles"
-             :author "Bujold, Lois McMaster"}
-            {:id 4
-             :name "With the Lightnings"
-             :author "Drake, David"}
-            {:id 1
-             :name "Pawn of Prophecy"
-             :author "Eddings, David"}
-            {:id 2
-             :name "Good Omens"
-             :author "Pratchett, Terry and Neil Gaiman"}
-            {:id 3
-             :name "On Basilisk Station"
-             :author "Weber, David"}]))
+           (c/generate-string
+             [{:id 0
+               :name "Young Miles"
+               :author "Bujold, Lois McMaster"}
+              {:id 4
+               :name "With the Lightnings"
+               :author "Drake, David"}
+              {:id 1
+               :name "Pawn of Prophecy"
+               :author "Eddings, David"}
+              {:id 2
+               :name "Good Omens"
+               :author "Pratchett, Terry and Neil Gaiman"}
+              {:id 3
+               :name "On Basilisk Station"
+               :author "Weber, David"}])))
     (is (= (:handler (b/match-route u/api-routes "/api/book/all"))
            :book/all)))
 
   (testing ":book/search"
     (are [params result] (= (handle-route {:handler :book/search}
                                           {:params params})
-                            result)
-      {"name" "Young"}
+                            (c/generate-string result))
+      {:name "Young"}
       [{:id 0
         :name "Young Miles"
         :author "Bujold, Lois McMaster"}]
 
-      {"author" "David"
-       "name" "Pawn"}
+      {:author "David"
+       :name "Pawn"}
       [{:id 1
         :name "Pawn of Prophecy"
         :author "Eddings, David"}]
       
-      {"author" "David"}
+      {:author "David"}
       [{:id 4
         :name "With the Lightnings"
         :author "Drake, David"}
@@ -97,10 +98,10 @@ from the evil Alliance"
         :name "On Basilisk Station"
         :author "Weber, David"}]
 
-      {"author" "foo"}
+      {:author "foo"}
       []
 
-      {"foo" "bar"}
+      {:foo "bar"}
       [{:id 0
         :name "Young Miles"
         :author "Bujold, Lois McMaster"}
@@ -117,8 +118,8 @@ from the evil Alliance"
         :name "On Basilisk Station"
         :author "Weber, David"}]
 
-      {"foo" "bar"
-       "author" "David"}
+      {:foo "bar"
+       :author "David"}
       [{:id 4
         :name "With the Lightnings"
         :author "Drake, David"}
@@ -133,14 +134,18 @@ from the evil Alliance"
         :book/search))
   
   (testing ":get-book"
-    (is (= (handle-route {:handler :book/get :route-params {:book-id "1"}} nil)
-           {:id 1
-            :name "Pawn of Prophecy"
-            :author "Eddings, David"
-            :description "Young Garion and his aunt get caught up in historic events"
-            :genre :fantasy})
+    (is (= (handle-route {:handler :book/get :route-params {:book-id "1"}}
+                         nil)
+           (c/generate-string
+             {:id 1
+              :name "Pawn of Prophecy"
+              :author "Eddings, David"
+              :description "Young Garion and his aunt get caught up in historic events"
+              :genre :fantasy}))
         "getting a book works")
-    (is (= (handle-route {:handler :book/get :route-params {:book-id "100"}} nil)
+    (is (= (handle-route {:handler :book/get
+                          :route-params {:book-id "100"}}
+                         nil)
            nil)
         "getting a non-existant book returns nil")
     (is (= (b/match-route u/api-routes "/api/book/5")

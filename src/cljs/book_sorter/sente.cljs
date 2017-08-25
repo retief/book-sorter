@@ -4,9 +4,18 @@
 
 (enable-console-print!)
 
+(defn- dummy [& args]
+  nil)
+
 (defonce chsk-map
-  (s/make-channel-socket! "/chsk"
-                          {:type :auto}))
+  (try
+    (s/make-channel-socket! "/chsk"
+                            {:type :auto})
+    (catch js/Object e
+      {:chsk nil
+       :ch-recv nil
+       :send-fn dummy
+       :state nil})))
 
 (let [{:keys [chsk ch-recv send-fn state]} chsk-map]
   (defonce chsk       chsk)
