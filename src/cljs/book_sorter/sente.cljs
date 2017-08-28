@@ -23,6 +23,31 @@
   (defonce chsk-send! send-fn)       ; ChannelSocket's send API fn
   (defonce chsk-state state))        ; Watchable, read-only atom
 
+(def pending-messages (atom []))
+
+(defn deref-reset!
+  [atm new-value]
+  (let [old-value @atm]
+    (if (compare-and-set! atm old-value new-value)
+      old-value
+      (recur atm new-value))))
+
+(defn send-message! [& msg]
+  (if (:open? @chsk-state)
+    (apply chsk-send! msg)
+    (do (println "delaying message:")
+        (prn msg)
+        (swap! pending-messages conj msg))))
+
+(add-watch chsk-state ::channel-state-watcher
+           (fn [key atom old new]
+             (when (:open? new)
+               (let [msgs (deref-reset! pending-messages [])]
+                 (println "sending messages:")
+                 (prn msgs)
+                 (doseq [msg msgs]
+                   (apply chsk-send! msg))))))
+
 (defn handle-sente-send [{event :event
                           on-success :on-success
                           on-failure :on-failure
@@ -38,7 +63,7 @@
         timeout (and cb (or timeout 2000))]
     (println "sending sente")
     (prn event on-success on-failure timeout)
-    (chsk-send! event timeout cb)
+    (send-message! event timeout cb)
     (println "sente sent")))
 
 (rf/reg-fx

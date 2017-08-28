@@ -31,6 +31,7 @@
                           client-id :client-id
                           ring-req :ring-req
                           ch-recv :ch-recv}]
+  (println "event:" id data)
   (let [res (handle-message event)]
     (when reply-fn
       (reply-fn res))))
