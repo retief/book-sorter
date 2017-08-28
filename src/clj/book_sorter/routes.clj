@@ -7,44 +7,12 @@
             [bidi.bidi :as b]
             [cheshire.core :as c]
             [book-sorter.urls :as u]
-            [taoensso.sente :as sente]
-            [taoensso.sente.server-adapters.aleph :as sente-adapter]
             [aleph.http :as http]
-            [aleph.netty :as netty]))
+            [aleph.netty :as netty]
+            [book-sorter.core :refer [book-data clean-books find-book]]
+            [book-sorter.sente-api :as sa]))
 
-(def book-data
-  (atom [{:id 0
-          :name "Young Miles"
-          :author "Bujold, Lois McMaster"
-          :description "Miles accidentally a mercenary fleet"
-          :genre :sci-fi}
-         {:id 1
-          :name "Pawn of Prophecy"
-          :author "Eddings, David"
-          :description "Young Garion and his aunt get caught up in historic events"
-          :genre :fantasy}
-         {:id 2
-          :name "Good Omens"
-          :author "Pratchett, Terry and Neil Gaiman"
-          :description "What if the antichrist was a 10 year old kid?"
-          :genre :fantasy}
-         {:id 3
-          :name "On Basilisk Station"
-          :author "Weber, David"
-          :description "Honor Harrington is handed a ship with an \"experimental\"
-loadout and a crew that hates her.  Can she foil the dastardly Havenite plot?"
-          :genre :sci-fi}
-         {:id 4
-          :name "With the Lightnings"
-          :author "Drake, David"
-          :description "Daniel Leary and Adele Mundy must team up to save the planet
-from the evil Alliance"
-          :genre :sci-fi}
-         {:id 5
-          :name "My Family and Other Animals"
-          :author "Durrell, Gerald"
-          :description "10 year old Gerald Durrell moves to Corfu with his family"
-          :genre :comedy}]))
+
 
 (defn json-response [val]
   (c/generate-string val))
@@ -56,11 +24,6 @@ from the evil Alliance"
     to turn into json"
   {:arglists '([route req])}
   (fn [route req] (:handler route)))
-
-(defn clean-books [books]
-  (->> books
-       (map #(select-keys % [:id :name :author]))
-       (sort-by :author)))
 
 (defmethod handle-route :book/all
   [_ _]
@@ -81,38 +44,19 @@ from the evil Alliance"
 (defmethod handle-route :book/get
   [{{book-id :book-id} :route-params} _]
   (let [book-id (Integer/parseInt book-id)
-        result (some #(and (= (:id %) book-id) %)
-                     @book-data)]
+        result (find-book book-id)]
     (and result
          (json-response
            result))))
 
-(let [{:keys [ch-recv send-fn connected-uids
-              ajax-post-fn ajax-get-or-ws-handshake-fn]}
-      (sente/make-channel-socket! (sente-adapter/get-sch-adapter) {})]
 
-  (def ring-ajax-post                ajax-post-fn)
-  (def ring-ajax-get-or-ws-handshake ajax-get-or-ws-handshake-fn)
-  (def ch-chsk                       ch-recv) ; ChannelSocket's receive channel
-  (def chsk-send!                    send-fn) ; ChannelSocket's send API fn
-  (def connected-uids                connected-uids)) ; Watchable, read-only atom
 
 (defmethod handle-route :sente/setup
   [_ {method :request-method :as req}]
   ((case method
-     :get ring-ajax-get-or-ws-handshake
-     :post ring-ajax-post
+     :get sa/ring-ajax-get-or-ws-handshake
+     :post sa/ring-ajax-post
      (constantly nil)) req))
-
-(defn event-msg-handler [{reply-fn :?reply-fn :as ev-msg}]
-  (prn "ev-msg" (select-keys ev-msg
-                             [:event :id :?data
-                              :?reply-fn :uid :client-id]))
-  (prn "keys" (keys ev-msg))
-  (when reply-fn
-    (reply-fn [:hello-again "foo"])))
-
-(sente/start-server-chsk-router! ch-chsk event-msg-handler)
 
 (defmethod handle-route :server/client-route
   [_ _]

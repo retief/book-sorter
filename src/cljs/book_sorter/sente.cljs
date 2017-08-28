@@ -27,13 +27,14 @@
                           on-success :on-success
                           on-failure :on-failure
                           timeout :timeout}]
-  (let [cb (and (or on-success on-failure)
-                (fn [cb-reply]
-                  (if (s/cb-success? cb-reply)
-                    (and on-success
-                         (rf/dispatch (conj on-success cb-reply)))
-                    (and on-failure
-                         (rf/dispatch (conj on-failure cb-reply))))))
+  (let [cb (when (or on-success on-failure)
+             (fn [cb-reply]
+               (prn "sente's reply:" cb-reply)
+               (if (s/cb-success? cb-reply)
+                 (when on-success
+                   (rf/dispatch (conj on-success cb-reply)))
+                 (when on-failure
+                   (rf/dispatch (conj on-failure cb-reply))))))
         timeout (and cb (or timeout 2000))]
     (println "sending sente")
     (prn event on-success on-failure timeout)

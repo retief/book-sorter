@@ -1,6 +1,7 @@
 (ns book-sorter.routes-test
   (:require [clojure.test :refer [deftest testing is use-fixtures are]]
-            [book-sorter.routes :refer [book-data handle-route app make-handler]]
+            [book-sorter.core :refer [book-data]]
+            [book-sorter.routes :refer [handle-route app make-handler]]
             [book-sorter.urls :as u]
             [bidi.bidi :as b]
             [ring.mock.request :as mock]
