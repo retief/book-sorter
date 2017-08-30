@@ -11,16 +11,30 @@
     {:db {}}))
 
 (rf/reg-event-db
+  :client/sente-fail
+  (fn [db [_ msg]]
+    (println "sente failed")
+    (prn msg)
+    db))
+
+(rf/reg-event-db
   :client.home/data-loaded
   (fn [db [_ url data]]
     (assoc db
-           :page-data data
+           :page-data {:data data
+                       :query {}}
            :location url)))
+
+(rf/reg-event-db
+  :client.home/filter
+  (fn [db [_ query]]
+    (assoc db :filter query)))
 
 (defmethod r/handle-route :client/home
   [_ url]
   {:sente/send {:event [:book/all]
-                :on-success [:client.home/data-loaded url]}})
+                :on-success [:client.home/data-loaded url]
+                :on-failure [:client/sente-fail]}})
 
 (rf/reg-event-db
   :client.show-book/data-loaded
@@ -55,6 +69,19 @@
   (fn [{data :page-data} _]
     data))
 
+(rf/reg-sub
+  :client.home/filtered-books
+  (fn [{{data :data
+         query :query} :page-data} _]
+    (let [f (fn [book]
+              (every?
+                (fn [[key search-value]]
+                  (if-let [book-value (key book)]
+                    (not (= (.indexOf book-value search-value) -1))
+                    true))
+                query))]
+      (filter f data))))
+
 (defmulti show-page
   "Given a location, computes the view
   returns re-frames pseudo-hiccup"
@@ -83,26 +110,27 @@
     [:span.name name] " by " [:span.author author]]])
 
 (defmethod show-page :client/home
-  [_ book-list]
-  [:div [:h1 "all books"]
-   (for [book book-list]
-     ^{:key (:id book)} [show-book book])])
+  [_]
+  (let [book-list @(rf/subscribe [:client.home/filtered-books])]
+    [:div [:h1 "all books"]
+     (for [book book-list]
+       ^{:key (:id book)} [show-book book])]))
 
 (defmethod show-page :client/show-book
-  [_ {name :name
-      author :author
-      description :description
-      genre :genre}]
-  [:div
-   [:div name]
-   [:div author]
-   [:div description]
-   [:div genre]
-   [:a {:href (r/url-str {:handler :client/home})} "Up"]])
+  [_]
+  (let [{name :name
+         author :author
+         description :description
+         genre :genre} @(rf/subscribe [:page-data])]
+    [:div
+     [:div name]
+     [:div author]
+     [:div description]
+     [:div genre]
+     [:a {:href (r/url-str {:handler :client/home})} "Up"]]))
 
 (defn ui []
-  (show-page @(rf/subscribe [:location])
-             @(rf/subscribe [:page-data])))
+  (show-page @(rf/subscribe [:location])))
 
 (defn ^:export run
   []

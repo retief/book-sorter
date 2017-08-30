@@ -33,8 +33,7 @@
       (recur atm new-value))))
 
 (defn send-message! [& msg]
-  (if (:open? @chsk-state)
-    (apply chsk-send! msg)
+  (when (not (apply chsk-send! msg))
     (do (println "delaying message:")
         (prn msg)
         (swap! pending-messages conj msg))))
