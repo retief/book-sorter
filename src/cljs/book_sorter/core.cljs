@@ -1,6 +1,7 @@
 (ns book-sorter.core
   (:require [reagent.core :as reagent]
             [re-frame.core :as rf]
+            [reagent.core :as re]
             [clojure.string :as str]
             [book-sorter.routing :as r]
             [book-sorter.sente]))
@@ -22,13 +23,15 @@
   (fn [db [_ url data]]
     (assoc db
            :page-data {:data data
-                       :query {}}
+                       :query {:name ""
+                               :author ""}}
            :location url)))
 
 (rf/reg-event-db
-  :client.home/filter
-  (fn [db [_ query]]
-    (assoc db :filter query)))
+  :client.home/update-query
+  (fn [db [_ k v]]
+    (if (-> db :location :handler (= :client/home))
+      (assoc-in db [:page-data :query k] v))))
 
 (defmethod r/handle-route :client/home
   [_ url]
@@ -54,11 +57,6 @@
     {:sente/send {:event [:book/get id]
                   :on-success [:client.show-book/data-loaded url]}}))
 
-(rf/reg-event-fx
-  :client/sente-responded
-  (fn [_ event]
-    (prn "sente responded" event)))
-
 (rf/reg-sub
   :location
   (fn [{location :location} _]
@@ -81,6 +79,10 @@
                     true))
                 query))]
       (filter f data))))
+
+(rf/reg-sub
+  :client.home/query
+  (fn [{{query :query} :page-data} _] query))
 
 (defmulti show-page
   "Given a location, computes the view
@@ -111,8 +113,22 @@
 
 (defmethod show-page :client/home
   [_]
-  (let [book-list @(rf/subscribe [:client.home/filtered-books])]
+  (let [book-list @(rf/subscribe [:client.home/filtered-books])
+        query @(rf/subscribe [:client.home/query])]
     [:div [:h1 "all books"]
+     [:div
+      [:label {:for "name-query"} "Name: "]
+      [:input#name-query {:type "text"
+                           :value (:name query)
+                           :on-change #(rf/dispatch [:client.home/update-query
+                                                     :name
+                                                     (-> % .-target .-value)])}]
+      [:label {:for "author-query"} "Author: "]
+      [:input#author-query {:type "text"
+                            :value (:author query)
+                            :on-change #(rf/dispatch [:client.home/update-query
+                                                      :author
+                                                      (-> % .-target .-value)])}]]
      (for [book book-list]
        ^{:key (:id book)} [show-book book])]))
 
