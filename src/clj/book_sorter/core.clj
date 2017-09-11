@@ -43,3 +43,17 @@ from the evil Alliance"
 (defn find-book [book-id]
   (some #(and (= (:id %) book-id) %)
         @book-data))
+
+(defmulti get-data
+  "gets data for a given request"
+  {:arglists '([[identifier & arguments]])}
+  (fn [[id]] id))
+
+(defmethod get-data :book/all
+  [_]
+  (clean-books @book-data))
+
+(defmethod get-data :book/get
+  [[_ book-id]]
+  (or (find-book book-id)
+      :book/no-book))

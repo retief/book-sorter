@@ -1,11 +1,14 @@
 (ns book-sorter.sente-api
-  (:require [book-sorter.core :refer [book-data clean-books find-book]]
+  (:require [book-sorter.core :as core]
             [taoensso.sente :as sente]
-            [taoensso.sente.server-adapters.aleph :as sente-adapter]))
+            [taoensso.sente.server-adapters.aleph :as sente-adapter]
+            [book-sorter.subscription-manager :as sm]))
 
 (let [{:keys [ch-recv send-fn connected-uids
               ajax-post-fn ajax-get-or-ws-handshake-fn]}
-      (sente/make-channel-socket! (sente-adapter/get-sch-adapter) {})]
+      (sente/make-channel-socket! (sente-adapter/get-sch-adapter)
+                                  {:user-id-fn (fn [ring-req]
+                                                 (:client-id ring-req))})]
 
   (def ring-ajax-post                ajax-post-fn)
   (def ring-ajax-get-or-ws-handshake ajax-get-or-ws-handshake-fn)
@@ -16,10 +19,10 @@
 (defmulti handle-message
   "The main sente message handler"
   {:arglists '([[id data]])}
-  (fn [[id]] id))
+  (fn [[id] _] id))
 
 (defmethod handle-message :default
-  [[id]]
+  [[id] _]
   (when (not (= (namespace id) "chsk"))
     (throw (Exception. (str "Message not handled: " id)))))
 
@@ -31,18 +34,19 @@
                           client-id :client-id
                           ring-req :ring-req
                           ch-recv :ch-recv}]
-  (println "event:" id data)
-  (let [res (handle-message event)]
+  (println "event:" event id data)
+  (let [res (handle-message event uid)]
     (when reply-fn
       (reply-fn res))))
 
-(defmethod handle-message :book/all
-  [_]
-  (clean-books @book-data))
+(def subscriptions (atom sm/base-manager))
 
-(defmethod handle-message :book/get
-  [[_ book-id]]
-  (find-book book-id))
+(defmethod handle-message :book/data
+  [[id requests] uid]
+  (prn id requests uid)
+  (->> requests
+       (map #(vector % (core/get-data %)))
+       (into {})))
 
 (sente/start-server-chsk-router! ch-chsk event-msg-handler)
 

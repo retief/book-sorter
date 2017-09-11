@@ -32,7 +32,7 @@
       old-value
       (recur atm new-value))))
 
-(defn send-message! [& msg]
+(defn raw-send-message! [& msg]
   (when (not (apply chsk-send! msg))
     (do (println "delaying message:")
         (prn msg)
@@ -47,10 +47,7 @@
                  (doseq [msg msgs]
                    (apply chsk-send! msg))))))
 
-(defn handle-sente-send [{event :event
-                          on-success :on-success
-                          on-failure :on-failure
-                          timeout :timeout}]
+(defn send-message! [{:keys [event on-success on-failure timeout]}]
   (let [cb (when (or on-success on-failure)
              (fn [cb-reply]
                (prn "sente's reply:" cb-reply)
@@ -62,9 +59,9 @@
         timeout (and cb (or timeout 2000))]
     (println "sending sente")
     (prn event on-success on-failure timeout)
-    (send-message! event timeout cb)
+    (raw-send-message! event timeout cb)
     (println "sente sent")))
 
 (rf/reg-fx
   :sente/send
-  handle-sente-send)
+  send-message!)

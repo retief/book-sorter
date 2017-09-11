@@ -2,9 +2,10 @@
   (:require [reagent.core :as reagent]
             [re-frame.core :as rf]
             [reagent.core :as re]
+            [reagent.ratom :as ra]
             [clojure.string :as str]
             [book-sorter.routing :as r]
-            [book-sorter.sente]))
+            [book-sorter.sente :as bs]))
 
 (rf/reg-event-fx
   :initialize
@@ -18,71 +19,43 @@
     (prn msg)
     db))
 
-(rf/reg-event-db
-  :client.home/data-loaded
-  (fn [db [_ url data]]
-    (assoc db
-           :page-data {:data data
-                       :query {:name ""
-                               :author ""}}
-           :location url)))
-
-(rf/reg-event-db
-  :client.home/update-query
-  (fn [db [_ k v]]
-    (if (-> db :location :handler (= :client/home))
-      (assoc-in db [:page-data :query k] v))))
-
-(defmethod r/handle-route :client/home
-  [_ url]
-  {:sente/send {:event [:book/all]
-                :on-success [:client.home/data-loaded url]
-                :on-failure [:client/sente-fail]}})
-
-(rf/reg-event-db
-  :client.show-book/data-loaded
-  (fn [db [_ url book]]
-    (if book
-      (assoc db
-             :page-data book
-             :location url)
-      (assoc db
-             :page-data url
-             :location {:handler :client/not-found}))))
-
-(defmethod r/handle-route :client/show-book
-  [_ {{id :book-id} :params
-      :as url}]
-  (let [id (js/parseInt id 10)]
-    {:sente/send {:event [:book/get id]
-                  :on-success [:client.show-book/data-loaded url]}}))
-
 (rf/reg-sub
   :location
   (fn [{location :location} _]
     location))
 
 (rf/reg-sub
+  :handler
+  :<- [:location]
+  (fn [{:keys [handler]} _]
+    handler))
+
+(rf/reg-sub
   :page-data
   (fn [{data :page-data} _]
     data))
 
-(rf/reg-sub
-  :client.home/filtered-books
-  (fn [{{data :data
-         query :query} :page-data} _]
-    (let [f (fn [book]
-              (every?
-                (fn [[key search-value]]
-                  (if-let [book-value (key book)]
-                    (not (= (.indexOf book-value search-value) -1))
-                    true))
-                query))]
-      (filter f data))))
+(rf/reg-event-db
+  :update-subs
+  (fn [db [_ subs]]
+    (update db :subscriptions merge subs)))
 
-(rf/reg-sub
-  :client.home/query
-  (fn [{{query :query} :page-data} _] query))
+(rf/reg-event-db
+  :clear-sub
+  (fn [db [_ sub]]
+    (update db :subscriptions dissoc sub)))
+
+(rf/reg-sub-raw
+  :api-data
+  (fn [app-db [_ sub]]
+    (bs/send-message! {:event [:book/data [sub]]
+                       :on-success [:update-subs]
+                       :on-failure [:client/sente-fail]})
+    (ra/make-reaction
+      #(get-in @app-db [:subscriptions sub])
+      :on-dispose #(do
+                     (rf/dispatch [:clear-sub sub])
+                     (bs/send-message! {:event [:book/clear-subs [sub]]})))))
 
 (defmulti show-page
   "Given a location, computes the view
@@ -103,6 +76,50 @@
    (r/url-str url)
    " not found"])
 
+(defn ui []
+  (show-page @(rf/subscribe [:location])))
+
+(defn ^:export run
+  []
+  (rf/dispatch-sync [:initialize])
+  (reagent/render [ui]
+                  (js/document.getElementById "app"))
+  (r/intercept-routes!))
+
+;; client/home
+
+(rf/reg-sub
+  :client.home/query
+  :<- [:handler]
+  :<- [:page-data]
+  (fn [[handler query] _]
+    (and (= handler :client/home) query)))
+
+(rf/reg-sub
+  :client.home/filtered-books
+  :<- [:client.home/query]
+  :<- [:api-data [:book/all]]
+  (fn [[query data] _]
+    (when query
+      (let [f (fn [book]
+                (every?
+                  (fn [[key search-value]]
+                    (if-let [book-value (key book)]
+                      (not (= (.indexOf book-value search-value) -1))
+                      true))
+                  query))]
+        (filter f data)))))
+
+(rf/reg-event-db
+  :client.home/update-query
+  (fn [db [_ k v]]
+    (if (-> db :location :handler (= :client/home))
+      (assoc-in db [:page-data k] v))))
+
+(defmethod r/handle-route :client/home
+  [{:keys [db]} url]
+  {:db (assoc db :location url :page-data {:name "" :author ""})})
+
 (defn show-book [{name :name
                   author :author
                   id :id}]
@@ -119,10 +136,10 @@
      [:div
       [:label {:for "name-query"} "Name: "]
       [:input#name-query {:type "text"
-                           :value (:name query)
-                           :on-change #(rf/dispatch [:client.home/update-query
-                                                     :name
-                                                     (-> % .-target .-value)])}]
+                          :value (:name query)
+                          :on-change #(rf/dispatch [:client.home/update-query
+                                                    :name
+                                                    (-> % .-target .-value)])}]
       [:label {:for "author-query"} "Author: "]
       [:input#author-query {:type "text"
                             :value (:author query)
@@ -132,25 +149,32 @@
      (for [book book-list]
        ^{:key (:id book)} [show-book book])]))
 
+;; client/show-book
+
+(rf/reg-sub
+  :client.show-book/book-data
+  (fn [_]
+    (let [page-data (rf/subscribe [:page-data])]
+      [page-data (rf/subscribe [:api-data [:book/get @page-data]])]))
+  (fn [[id book] _] book))
+
+(defmethod r/handle-route :client/show-book
+  [{:keys [db]} {{id :book-id} :params
+               :as url}]
+  (let [id (js/parseInt id 10)]
+    {:db (assoc db
+                :page-data id
+                :location url)}))
+
 (defmethod show-page :client/show-book
   [_]
   (let [{name :name
          author :author
          description :description
-         genre :genre} @(rf/subscribe [:page-data])]
+         genre :genre} @(rf/subscribe [:client.show-book/book-data])]
     [:div
      [:div name]
      [:div author]
      [:div description]
      [:div genre]
      [:a {:href (r/url-str {:handler :client/home})} "Up"]]))
-
-(defn ui []
-  (show-page @(rf/subscribe [:location])))
-
-(defn ^:export run
-  []
-  (rf/dispatch-sync [:initialize])
-  (reagent/render [ui]
-                  (js/document.getElementById "app"))
-  (r/intercept-routes!))
