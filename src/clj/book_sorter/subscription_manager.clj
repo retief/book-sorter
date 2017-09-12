@@ -9,21 +9,33 @@
     (conj s v)
     #{v}))
 
-(defn remove-subs [{:keys [by-id by-sub]}
+(defn remove-key [mp key val]
+  (let [new-val-list (disj (mp key) val)]
+    (if (empty? new-val-list)
+      (dissoc mp key)
+      (assoc mp key new-val-list))))
+
+(defn remove-subs-by-id [{:keys [by-id by-sub]}
                    id]
   {:by-id (dissoc by-id id)
-   :by-sub (let [subs (by-id id)
-                 remove-id (fn [by-sub sub]
-                             (let [new-id-list (disj (by-sub sub) id)]
-                               (if (empty? new-id-list)
-                                 (dissoc by-sub sub)
-                                 (assoc by-sub sub new-id-list))))]
-             (reduce remove-id by-sub subs))})
+   :by-sub (let [subs (by-id id)]
+             (reduce #(remove-key %1 %2 id) by-sub subs))})
+
+(defn remove-sub [{:keys [by-id by-sub]}
+                  id sub]
+  {:by-id (remove-key by-id id sub)
+   :by-sub (remove-key by-sub sub id)})
+
+(defn remove-subs [manager id subs]
+  (reduce #(remove-sub %1 id %2) manager subs))
 
 (defn add-sub [{:keys [by-id by-sub]}
                id sub]
   {:by-id (update by-id id (fnil conj #{}) sub)
    :by-sub (update by-sub sub (fnil conj #{}) id)})
+
+(defn add-subs [manager id requests]
+  (reduce #(add-sub %1 id %2) manager requests))
 
 (defn check-manager [{:keys [by-id by-sub]}]
   (let [make-pairs (fn [[k vs]]

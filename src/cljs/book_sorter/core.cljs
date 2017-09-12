@@ -36,12 +36,12 @@
     data))
 
 (rf/reg-event-db
-  :update-subs
+  :client/update-subs
   (fn [db [_ subs]]
     (update db :subscriptions merge subs)))
 
 (rf/reg-event-db
-  :clear-sub
+  :client/clear-sub
   (fn [db [_ sub]]
     (update db :subscriptions dissoc sub)))
 
@@ -49,12 +49,12 @@
   :api-data
   (fn [app-db [_ sub]]
     (bs/send-message! {:event [:book/data [sub]]
-                       :on-success [:update-subs]
+                       :on-success [:client/update-subs]
                        :on-failure [:client/sente-fail]})
     (ra/make-reaction
       #(get-in @app-db [:subscriptions sub])
       :on-dispose #(do
-                     (rf/dispatch [:clear-sub sub])
+                     (rf/dispatch [:client/clear-sub sub])
                      (bs/send-message! {:event [:book/clear-subs [sub]]})))))
 
 (defmulti show-page
@@ -155,26 +155,39 @@
   :client.show-book/book-data
   (fn [_]
     (let [page-data (rf/subscribe [:page-data])]
-      [page-data (rf/subscribe [:api-data [:book/get @page-data]])]))
+      [page-data (rf/subscribe [:api-data [:book/get (:id @page-data)]])]))
   (fn [[id book] _] book))
+
+(rf/reg-event-fx
+  :client.show-book/tag-book
+  (fn [{:keys [db]} [_ tag]]
+    (let [id (-> db :page-data :id)]
+      {:sente/send {:event [:book/set-tag
+                            {:id id
+                             :tag tag}]}})))
 
 (defmethod r/handle-route :client/show-book
   [{:keys [db]} {{id :book-id} :params
                :as url}]
   (let [id (js/parseInt id 10)]
     {:db (assoc db
-                :page-data id
+                :page-data {:id id}
                 :location url)}))
 
 (defmethod show-page :client/show-book
   [_]
-  (let [{name :name
-         author :author
-         description :description
-         genre :genre} @(rf/subscribe [:client.show-book/book-data])]
+  (let [{:keys [name author description genre tag]}
+        @(rf/subscribe [:client.show-book/book-data])]
     [:div
      [:div name]
      [:div author]
      [:div description]
      [:div genre]
+     [:div
+      [:label {:for "tag"} "Tag: "]
+      [:input#tag {:type "text"
+                   :value tag
+                   :on-change #(rf/dispatch
+                                 [:client.show-book/tag-book
+                                  (-> % .-target .-value)])}]]
      [:a {:href (r/url-str {:handler :client/home})} "Up"]]))

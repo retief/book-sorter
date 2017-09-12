@@ -17,8 +17,8 @@
   (def connected-uids                connected-uids)) ; Watchable, read-only atom
 
 (defmulti handle-message
-  "The main sente message handler"
-  {:arglists '([[id data]])}
+  "The main server sente message handler"
+  {:arglists '([[id data] uid])}
   (fn [[id] _] id))
 
 (defmethod handle-message :default
@@ -26,27 +26,43 @@
   (when (not (= (namespace id) "chsk"))
     (throw (Exception. (str "Message not handled: " id)))))
 
-(defn event-msg-handler [{event :event
-                          id :id
-                          data :?data
-                          reply-fn :?reply-fn
-                          uid :uid
-                          client-id :client-id
-                          ring-req :ring-req
-                          ch-recv :ch-recv}]
-  (println "event:" event id data)
+(defn event-msg-handler [{:keys [event id uid ?data ?reply-fn]}]
+  (println "event:" event id ?data)
   (let [res (handle-message event uid)]
-    (when reply-fn
-      (reply-fn res))))
+    (when ?reply-fn
+      (?reply-fn res))))
 
 (def subscriptions (atom sm/base-manager))
+
+(defn update-sub! [sub]
+  (let [data (core/get-data sub)
+        uids ((:by-sub @subscriptions) sub)]
+    (prn "all uids" @connected-uids)
+    (prn "updating subs" @subscriptions sub uids)
+    (doseq [uid uids]
+      (prn "updating sub" uid [:client/update-subs {sub data}])
+      (chsk-send! uid [:client/update-subs {sub data}]))))
 
 (defmethod handle-message :book/data
   [[id requests] uid]
   (prn id requests uid)
+  (swap! subscriptions sm/add-subs uid requests)
+  (prn "add-sub:" @subscriptions)
   (->> requests
        (map #(vector % (core/get-data %)))
        (into {})))
+
+(defmethod handle-message :book/clear-subs
+  [[id subs] uid]
+  (prn id subs uid)
+  (swap! subscriptions sm/remove-subs uid subs)
+  (prn "clear-sub:" @subscriptions))
+
+(defmethod handle-message :book/set-tag
+  [[id {tag :tag book-id :id}] uid]
+  (prn id book-id uid)
+  (core/set-tag! book-id tag)
+  (update-sub! [:book/get book-id]))
 
 (sente/start-server-chsk-router! ch-chsk event-msg-handler)
 

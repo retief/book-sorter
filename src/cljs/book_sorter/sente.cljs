@@ -62,6 +62,26 @@
     (raw-send-message! event timeout cb)
     (println "sente sent")))
 
+(defmulti handle-message
+  "The main client sente message handler"
+  {:arglists '([[id data]])}
+  (fn [[id]] id))
+
+(defmethod handle-message :default
+  [[id :as event]]
+  (when (not (= (namespace id) "chsk"))
+    (prn "Message not handled" event)))
+
+(defmethod handle-message :chsk/recv
+  [[_ server-event]]
+  (rf/dispatch server-event))
+
+(defn event-msg-handler [{:keys [event]}]
+  (prn "Message received" event)
+  (handle-message event))
+
+(s/start-client-chsk-router! ch-chsk event-msg-handler)
+
 (rf/reg-fx
   :sente/send
   send-message!)

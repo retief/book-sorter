@@ -57,3 +57,11 @@ from the evil Alliance"
   [[_ book-id]]
   (or (find-book book-id)
       :book/no-book))
+
+(defn set-tag! [id tag]
+  (swap! book-data
+         (fn [data]
+           (map #(if (= (:id %) id)
+                   (assoc % :tag tag)
+                   %)
+                data))))
